@@ -2,6 +2,11 @@ name: Build and release Flatpak
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build'
+        required: true
 
 jobs:
   build:
@@ -11,9 +16,15 @@ jobs:
       options: --privileged
     steps:
       - uses: actions/checkout@v4
+      - name: Set tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "TAG=${{ github.event.inputs.tag }}" >> "$GITHUB_ENV"
+          else
+            echo "TAG=${{ github.event.release.tag_name }}" >> "$GITHUB_ENV"
+          fi
       - name: Update manifest
         run: |
-          TAG=${{ github.event.release.tag_name }}
           sed -i "s/REPLACE_TAG/$TAG/" org.signal.Signal.yml
           URL="https://github.com/signalapp/Signal-Desktop/archive/$TAG.tar.gz"
           curl -L "$URL" -o source.tar.gz
@@ -22,7 +33,7 @@ jobs:
       - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           manifest-path: org.signal.Signal.yml
-          bundle: signal-desktop-${{ github.event.release.tag_name }}.flatpak
+          bundle: signal-desktop-${{ env.TAG }}.flatpak
           gpg-sign: ${{ secrets.GPG_SIGNING_KEY }}
           cache: false
           upload-artifact: false
