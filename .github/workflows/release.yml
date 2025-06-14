@@ -1,0 +1,39 @@
+name: Build and release Flatpak
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update manifest
+        run: |
+          TAG=${{ github.event.release.tag_name }}
+          sed -i "s/REPLACE_TAG/$TAG/" org.signal.Signal.yml
+          URL="https://github.com/signalapp/Signal-Desktop/archive/$TAG.tar.gz"
+          curl -L "$URL" -o source.tar.gz
+          SHA=$(sha256sum source.tar.gz | cut -d" " -f1)
+          sed -i "s/REPLACE_SHA/$SHA/" org.signal.Signal.yml
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          manifest-path: org.signal.Signal.yml
+          bundle: signal-desktop-${{ github.event.release.tag_name }}.flatpak
+          gpg-sign: ${{ secrets.GPG_SIGNING_KEY }}
+          cache: false
+          upload-artifact: false
+      - name: Create flatpakref
+        run: |
+          flatpak build-bundle repo signal-desktop.flatpak org.signal.Signal stable --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo --gpg-sign=${{ secrets.GPG_SIGNING_KEY }}
+          flatpak make-current-repo-flatpakref repo org.signal.Signal stable > signal-desktop.flatpakref
+      - name: Upload release artifacts
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            signal-desktop.flatpak
+            signal-desktop.flatpakref
+

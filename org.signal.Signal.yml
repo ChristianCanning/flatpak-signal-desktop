@@ -1,0 +1,23 @@
+app-id: org.signal.Signal
+runtime: org.freedesktop.Platform
+runtime-version: '23.08'
+sdk: org.freedesktop.Sdk
+command: signal-desktop
+finish-args:
+  - --device=dri
+  - --filesystem=home:none
+  - --persist=.config/Signal
+  - --share=network
+  - --socket=wayland
+  - --socket=x11
+modules:
+  - name: signal-desktop
+    buildsystem: simple
+    build-commands:
+      - npm install
+      - npm run build
+      - install -Dm755 -t /app/bin dist/linux-unpacked/signal-desktop
+    sources:
+      - type: archive
+        url: https://github.com/signalapp/Signal-Desktop/archive/REPLACE_TAG.tar.gz
+        sha256: REPLACE_SHA
